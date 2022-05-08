@@ -2,17 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\RemoveCSVFiles;
 use App\Jobs\UploadCsv;
+use App\Models\JobBatch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Storage;
 
 class HomeController extends Controller
 {
 
     public function index(Request $request)
     {
-        return view('welcome');
+        return view('welcome', ['batchs' => $this->allBatch()]);
+    }
+
+    public function allBatch()
+    {
+        return JobBatch::orderBy('created_at', 'DESC')->get()->toArray();
     }
 
 
@@ -25,14 +31,24 @@ class HomeController extends Controller
             'file.mimes'    => 'Please Upload CSV only with CSV Format'
         ]);
 
+
         $uploadedFile = $request->file('file');
+        $savedFile = uploadFile($uploadedFile);
+        $path = asset('storage/tmp-files/'. $savedFile);
 
-        Storage::disk('local')->put(
-            'files/',
-            $uploadedFile,
-        );
+        Bus::batch([
+            new UploadCsv($path, $savedFile),
+            new RemoveCSVFiles($savedFile),
+        ])
+        ->name($savedFile)
+        ->allowFailures(false)
+        ->onConnection('redis')
+        ->onQueue('csv_upload')
+        ->dispatch();
 
-        return redirect()->back();
+        return response()->json([
+            'status'    => 200,
+        ]);
         
     }
 }

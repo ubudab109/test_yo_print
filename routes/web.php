@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 | contains the "web" middleware group. Now create something great!
 |
 */
-
-Route::get('',[HomeController::class, 'index']);
-Route::post('',[HomeController::class, 'uploadCsv'])->name('upload.csv');
+Route::group(['middleware' => 'cors'], function () {
+    Route::get('',[HomeController::class, 'index'])->name('index.home');
+    Route::get('batch',[HomeController::class, 'allBatch']);
+    Route::post('',[HomeController::class, 'uploadCsv'])->name('upload.csv');
+});
